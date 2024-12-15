@@ -1,0 +1,18 @@
+FROM ubuntu:latest
+
+# Install necessary packages
+RUN apt-get update && apt-get install -y \
+    gcc \
+    python2.7 \
+    sudo \
+    openssl \
+    openssh-server \ 
+    gdb \
+    vim \
+    netcat \
+    man-db \
+    nano
+
+RUN ln -s /usr/bin/python2.7 /usr/bin/python2
+
+RUN yes | unminimize

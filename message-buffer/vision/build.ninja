@@ -1,0 +1,48 @@
+builddir = vision/binaries
+build $
+    $builddir/libcamera_message_framework.so.objs/lib/camera_message_framework_c.o: $
+    cxx vision/lib/camera_message_framework_c.cpp || $
+    link-stage/libauvlog.so link-stage/libfmt.so
+  cflags = $cflags -Ivision/ -Ilib -fPIC
+build $
+    $builddir/libcamera_message_framework.so.objs/lib/camera_message_framework.o: $
+    cxx vision/lib/camera_message_framework.cpp || link-stage/libauvlog.so $
+    link-stage/libfmt.so
+  cflags = $cflags -Ivision/ -Ilib -fPIC
+build $builddir/libcamera_message_framework.so.objs/lib/filelock.o: cxx $
+    vision/lib/filelock.cpp || link-stage/libauvlog.so link-stage/libfmt.so
+  cflags = $cflags -Ivision/ -Ilib -fPIC
+build $builddir/libcamera_message_framework.so: link_shared $
+    $builddir/libcamera_message_framework.so.objs/lib/camera_message_framework_c.o $
+    $builddir/libcamera_message_framework.so.objs/lib/camera_message_framework.o $
+    $builddir/libcamera_message_framework.so.objs/lib/filelock.o | $
+    link-stage/libauvlog.so link-stage/libfmt.so
+  libs = -lauvlog -lfmt
+  ldflags = $ldflags 
+build libcamera_message_framework.so: phony $
+    link-stage/libcamera_message_framework.so
+build link-stage/libcamera_message_framework.so: install $
+    $builddir/libcamera_message_framework.so
+build auv-webcam-camera: phony link-stage/auv-webcam-camera
+build link-stage/auv-webcam-camera: install $
+    vision/capture_sources/generic_camera.py
+build auv-video-camera: phony link-stage/auv-video-camera
+build link-stage/auv-video-camera: install vision/capture_sources/video.py
+build auv-camera-stream-server: phony link-stage/auv-camera-stream-server
+build link-stage/auv-camera-stream-server: install $
+    vision/capture_sources/stream_server.py
+build auv-camera-stream-client: phony link-stage/auv-camera-stream-client
+build link-stage/auv-camera-stream-client: install $
+    vision/capture_sources/stream_client.py
+build auv-flir-camera: phony link-stage/auv-flir-camera
+build link-stage/auv-flir-camera: install vision/capture_sources/flir.py
+build auv-zed-camera: phony link-stage/auv-zed-camera
+build link-stage/auv-zed-camera: install vision/capture_sources/zed.py
+build auv-yolo-shm: phony link-stage/auv-yolo-shm
+build link-stage/auv-yolo-shm: install vision/misc/yolo_shm.py
+build code-vision: phony | link-stage/libcamera_message_framework.so $
+    link-stage/auv-webcam-camera link-stage/auv-video-camera $
+    link-stage/auv-camera-stream-server link-stage/auv-camera-stream-client $
+    link-stage/auv-flir-camera link-stage/auv-zed-camera link-stage/auv-yolo-shm
+build tests-vision: phony 
+build check-vision: phony 

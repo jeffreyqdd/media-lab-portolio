@@ -1,0 +1,28 @@
+#!/bin/sh
+
+while getopts "dte:h?" opt ; do
+  case "$opt" in
+    h|\?)
+      printf "usage: %s -e KEY=VALUE prog [args...]\n" $(basename $0)
+      exit 0
+      ;;
+    t)
+      tty=1
+      gdb=1
+      ;;
+    d)
+      gdb=1
+      ;;
+    e)
+      env=$OPTARG
+      ;;
+  esac done
+
+shift $(expr $OPTIND - 1)
+prog=$(readlink -f $1)
+shift
+if [ -n "$gdb" ] ; then
+    exec env - $env OFFSET=$OFFSET TERM=screen PWD=$PWD gdb -ex 'unset env LINES' -ex 'unset env COLUMNS' --args $prog
+else
+    exec env - $env OFFSET=$OFFSET TERM=screen PWD=$PWD $prog
+fi

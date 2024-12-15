@@ -1,0 +1,21 @@
+builddir = webserver/binaries
+build webserver/npm-install.fake: npm-install | webserver/package.json
+  config_path = webserver
+build webserver/static/bundle.js: webpack | webserver/npm-install.fake $
+    webserver/src/header.jsx webserver/src/cuauv.jsx $
+    webserver/src/controlpoint.jsx $
+    webserver/src/framework/statusIndicator.jsx $
+    webserver/src/framework/environment.jsx $
+    webserver/src/framework/deadman.jsx $
+    webserver/src/framework/shm-table.jsx webserver/src/modules/index.jsx $
+    webserver/src/modules/vision_module.jsx $
+    webserver/src/modules/vision_index.jsx webserver/src/modules/admin.jsx $
+    webserver/src/modules/shm.jsx webserver/src/modules/test.jsx $
+    webserver/src/modules/map.jsx webserver/src/modules/drive.jsx
+  config = webserver/webpack.config.js
+build auv-webserver: phony link-stage/auv-webserver
+build link-stage/auv-webserver: install webserver/auv-webserver.py
+build code-webserver: phony | webserver/static/bundle.js $
+    link-stage/auv-webserver
+build tests-webserver: phony 
+build check-webserver: phony 

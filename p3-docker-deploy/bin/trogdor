@@ -1,0 +1,205 @@
+#!/bin/bash
+
+# Colors
+GRAY="\033[0;30m"
+CYAN="\033[0;36m"
+RED="\033[1;31m"
+BLUE="\033[0;34m"
+YELLOW="\033[0;33m"
+GREEN="\033[1;32m"
+ENDCOLOR="\033[0m"
+
+# parse input
+COMMAND=$1 
+if [ -z "$COMMAND" ] || [ help = "$COMMAND" ]; then
+    echo "Usage: trogdor [COMMAND] ...
+    build-base                  build base image
+    build-student <?netid...>   build image for all specified students. default=all
+    status <?netid...>          display container status for all specified students. default=summary
+    start <?netid...>           start container for all specified students default=all. 
+                                exits 0 only if the number of started containers equals the number of specified containers
+    stop <?netid...>            stop container for all specified students. default=all
+    restart <?netid...>         restart container for all specified students. default=all
+    info <netid...>             display sensitive container information for all specified students
+    help                        display this help message and exit
+    "
+    exit 0
+fi
+
+shift 1 # this reads all the net ids afterward
+NETIDS=$@ # should be a subset of ALL_NETIDS
+ALL_NETIDS=$(ls $CS3410_DOCKERFILES | awk -F '.' '{print $2}') # all the valid netids in the system
+
+# check if all user specified NETIDS are valid
+for id in $NETIDS; do
+    if ! [[ $ALL_NETIDS =~ (^|[[:space:]])$id($|[[:space:]]) ]]; then
+    echo "Netid $id is not valid"
+    exit 1
+    fi
+done
+
+prune-docker() {
+    echo -n "Pruning docker... "
+    echo "Y" | docker system prune | tail -1
+}
+
+build-base() {
+    docker buildx build $CS3410_ROOT --tag cs3410-base -f $CS3410_ROOT/assets/Dockerfile.base
+    prune-docker
+}
+
+
+build-student() {
+    # if nothing is specified, build all students
+    mkdir -p $CS3410_LOG
+    if [[ -z $NETIDS ]]; then
+        NETIDS=$ALL_NETIDS
+    fi
+
+    exec-build() {
+        # $1: name of docker container
+        # $2: path to dockerfile
+        echo -e "build $CYAN$1$ENDCOLOR with path $2"
+        docker buildx build $CS3410_ROOT --progress=plain --tag $1 -f $2 &> $CS3410_LOG/${1}.build.log
+        if [[ $? -eq 0 ]]; then
+            echo -e "${GREEN}Done$ENDCOLOR $CYAN$1$ENDCOLOR"
+            exit 0
+        else
+            echo -e "${RED}Error$ENDCOLOR $CYAN$1$ENDCOLOR. Check $CS3410_LOG/${1}.build.log for more information"
+            exit 1
+        fi
+
+    }
+    cnt=0
+    for netid in $NETIDS; do
+        exec-build cs3410-$netid $CS3410_DOCKERFILES/Dockerfile.$netid&
+        cnt=$(($cnt+1))
+        if [[ $cnt -eq 20 ]]; then # cap num of sim build jobs to 20
+            cnt=0
+            wait
+        fi
+    done
+    wait
+    prune-docker
+}
+
+docker_ps_result=$(docker ps) # we only do this once
+get-container-status() {
+    query=$1
+    grep_result=$(echo $docker_ps_result | grep -w "cs3410-$query")
+    if [[ -z $grep_result ]]; then
+        echo "stopped"
+    else
+        echo "running"      
+    fi
+}
+
+start-container() {
+    if [[ -z $NETIDS ]]; then
+        NETIDS=$ALL_NETIDS
+    fi
+    num_start=0
+    num_netids=0
+    for id in $NETIDS; do
+        num_netids=$(($num_netids+1))
+        if [[ $(get-container-status $id) == "stopped" ]]; then
+            docker compose -f $CS3410_COMPOSE/$id.yml rm --force &> /dev/null
+            docker compose -p $id -f $CS3410_COMPOSE/$id.yml up --detach --no-recreate --no-build &> /tmp/trogdorstart.txt
+            num_start=$(($num_start+1))
+            if [[ $? -eq 0 ]]; then
+                echo -e "trogdor start $CYAN$id$ENDCOLOR ${GREEN}SUCCESS$ENDCOLOR"
+            else
+                echo -e "trogdor start $CYAN$id$ENDCOLOR ${RED}FAIL$ENDCOLOR"
+                cat /tmp/trogdorstart.txt
+                num_start=$(($num_start-1))
+            fi 
+        else 
+            echo -e "trogdor start container is already running ${CYAN}cs3410-$id$ENDCOLOR"
+        fi
+    done    
+    if ! [[ $num_start -eq $num_netids ]]; then
+        echo -e "trogdor start ${RED}error:$ENDCOLOR some containers failed to start"
+        exit 1
+    fi
+}
+
+stop-container() {
+    if [[ -z $NETIDS ]]; then
+        echo -n "You are stopping all containers. Use [CTRL-C] if this is a mistake. Are you sure? [y/N]: "
+        read usr_in
+        if ! [[ $usr_in == "y" ]]; then
+            exit 0 
+        fi
+        NETIDS=$ALL_NETIDS
+    fi
+    for id in $NETIDS; do
+        if [[ $(get-container-status $id) == "running" ]]; then
+            shutdown() {
+                echo -e "trogdor stopping container ${CYAN}cs3410-$id$ENDCOLOR"
+                docker compose -p $id -f $CS3410_COMPOSE/$id.yml down &> /dev/null
+                echo -e "trogdor stop $CYAN$id$ENDCOLOR ${GREEN}SUCCESS$ENDCOLOR"
+            }
+            shutdown&
+        fi
+    done    
+    wait
+}
+
+container-status() {
+    if [[ -z $NETIDS ]]; then
+        up_cnt=0
+        down_cnt=0
+        for id in $ALL_NETIDS; do
+            if [[ $(get-container-status $id) == "running" ]]; then
+                up_cnt=$(($up_cnt+1))
+            else
+                down_cnt=$(($down_cnt+1))
+            fi                  
+        done
+        echo -e "trogdor status summary $up_cnt ${GREEN}UP${ENDCOLOR} $down_cnt ${RED}DOWN${ENDCOLOR}"
+    else
+        for id in $NETIDS; do 
+            if [[ $(get-container-status $id) == "running" ]]; then
+                echo -e "trogdor status ${CYAN}cs3410-$id$ENDCOLOR ${GREEN}UP${ENDCOLOR}"
+            else
+                echo -e "trogdor status ${CYAN}cs3410-$id$ENDCOLOR ${RED}DOWN${ENDCOLOR}"
+            fi                  
+        done
+    fi
+}
+
+container-info() {
+    for id in $NETIDS; do 
+        echo -e "trogdor info ${CYAN}cs3410-$id$ENDCOLOR"
+        echo "COMPOSE"
+        cat $CS3410_COMPOSE/$id.yml
+        echo "PASSKEYS"
+        cat $CS3410_PASSKEYS/$id.txt
+    done
+}
+
+restart-container() {
+    if [[ -z $NETIDS ]]; then
+        echo -n "You are restarting all containers. Use [CTRL-C] if this is a mistake. Are you sure? [y/N]: "
+        read usr_in
+        if ! [[ $usr_in == "y" ]]; then
+            exit 0 
+        fi
+        NETIDS=$ALL_NETIDS
+    fi
+    stop-container $NETIDS
+    sleep 5
+    docker_ps_result=$(docker ps) # re-init this variable
+    start-container $NETIDS
+}
+
+case $COMMAND in 
+    build-base) build-base ;;
+    build-student) build-student ;;
+    start) start-container ;;
+    stop) stop-container ;;
+    status) container-status ;;
+    restart) restart-container ;;
+    info) container-info ;;
+    *) echo "invalid command" ;;
+esac

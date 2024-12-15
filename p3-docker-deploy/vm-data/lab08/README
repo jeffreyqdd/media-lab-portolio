@@ -1,0 +1,26 @@
+#
+# Your task (https://bit.ly/3RfVXgN) is to take over the user _alphatrouble_
+#
+# In this directory there is a file called "simple" that is owned by alphatrouble,
+# with it's "setuid" bit set - this means that when you're running that file, you
+# have alphatrouble's permissions.
+#
+# If you can make "simple" spawn a shell, then you can completely take over the alphatrouble user.
+# By exploiting their horribly written code, spawn a shell and find out the contents of the secret file
+# in their home directory (/home/alphatrouble/secret_pwd).
+#
+# The file "simplebuffer.c" contains the source to this horribly written code - you should
+# read this to understand the atrocities they've committed against safe C programming.
+#
+# The x86 assembly code to spawn a shell is already given to you in the "egg" file.
+# You must:
+#   1) Edit the egg file so that it prints out something that can be used as an input to "simple"
+#   2) This input must exploit a buffer overflow vulnerability in "simple" and spawn a shell
+#   3) Once this shell is spawned, you should read alpha's secret file (`cat /home/alphatrouble/secret_pwd`)
+#   4) ... Profit!
+
+# Your solution should work with the invoke script we've provided so the command:
+
+(./egg && cat) | invoke simple
+
+# should spawn a shell as the user alphatrouble

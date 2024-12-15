@@ -1,0 +1,35 @@
+# In this problem you're trying to take over the user _betastruggle_
+#
+# They've written a program that reads in a sequence of integer strings
+# and copies them from one buffer to another, printing out the number of copied integers.
+# The source code for this program is in `sizeconfusion.c` and the file `size`
+# is the executable that runs this code and executes with _betastruggle's_ permissions.
+#
+
+# This problem consists of two parts: first, determining how to cause a buffer overflow in
+# one of the program's buffers; second, to again craft an appropriate payload that will
+# cause a shell to spawn.
+#
+#
+# We have provided a skeleton in the `egg` file, which again contains the (same) x86 code
+# for spawning a shell. Additionally, it contains a helper function that will convert
+# a little-endian encoded python2 hex string into a string of integers whose
+# byte values are the same as the original hex string.
+# For instance it takes the input '\x00\x10\x0f\x04' and produces the string "68096000"
+# since 69096000 = 0x040f1000.
+#
+# You can see an example use of this function in the egg script where we run it on the shellcode.
+#
+#
+# The x86 assembly code to spawn a shell is already given to you in the "egg" file.
+# You must:
+#   1) Edit the egg file so that it prints out something that can be used as an input to "size"
+#   2) This input must exploit a buffer overflow vulnerability in "size" and spawn a shell
+#   3) Once this shell is spawned, you should read beta's secret file (`cat /home/betastruggle/secret_pwd`)
+#   4) ... Profit!
+
+# Your solution should work with the invoke script we've provided so the command:
+
+(./egg && cat) | invoke size
+
+# should spawn a shell as the user betastruggle
